@@ -3,6 +3,11 @@ var MORE_NUMBERS_LINK = "https://" + BASE_DOMAIN + "/static/dialInInfo.html?room
 var PHONE_NUMBERS_LIST_LINK = "https://api.jitsi.net/phoneNumberList?calendar=true";
 var CONF_MAPPER_LINK = "https://api.jitsi.net/conferenceMapper?conference=";
 var MUC_HOST = "@conference." + BASE_DOMAIN;
+/*
+ * Authentication info
+ */
+var APP_ID = "<your app id>";
+var APP_TOKEN = "<your app token>";
 
 /**
  *  Creates a conference, then builds and returns a ConferenceData object
@@ -82,6 +87,26 @@ function createConference(arg) {
   return dataBuilder.build();
 }
 
+function base64Encode(text, isJson)
+{
+  const data = isJson ? JSON.stringify(text) : text;
+  return Utilities.base64EncodeWebSafe(data).replace(/=+$/, '');
+};
+
+function createJwt(privateKey, payload) {
+
+  // Sign token using HMAC with SHA-256 algorithm
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT'
+  };
+
+  const toSign = base64Encode(header, true) + "." + base64Encode(payload, true);
+  const signatureBytes = Utilities.computeHmacSha256Signature(toSign, privateKey, Utilities.Charset.US_ASCII);
+  const signature = base64Encode(signatureBytes, false);
+  return toSign + "." + signature;
+};
+
 /**
  *  Contact the third-party conferencing system to create a conference there,
  *  using the provided calendar event information. Collects and returns the
@@ -109,13 +134,34 @@ function createConference(arg) {
  */
 function create3rdPartyConference(calendarEvent) {
   var data = {};
+  var jsonobj = {};
 
-  var response = UrlFetchApp.fetch(PHONE_NUMBERS_LIST_LINK);
-  var jsonobj = JSON.parse(response.getContentText());
+  var roomName = Utilities.getUuid().toString();
 
-  var roomName = generateRoomWithoutSeparator(jsonobj.roomNameDictionary);
+  const now = Date.now();
+  const expires = new Date(now);
+  expires.setMonth(expires.getMonth() + 12);
+
+  var claims = {
+    'aud' : APP_ID,
+    'iss' : APP_ID,
+    'sub' : BASE_DOMAIN,
+    'exp' : Math.floor(expires.getTime() / 1000),
+    'context' : {
+      "user": {
+        "avatar":"",
+        "name":"",
+        "email":"",
+        "id":""},
+        "group":""
+    },
+    'room' : roomName
+  }
+
+  var jwt = createJwt(APP_TOKEN, claims);
+
   data.id = BASE_DOMAIN +"/" + roomName;
-  data.videoUri = "https://" + BASE_DOMAIN +"/" + roomName;
+  data.videoUri = "https://" + BASE_DOMAIN +"/" + roomName + "?jwt=" + jwt.toString();
   data.moreLink = MORE_NUMBERS_LINK + roomName;
   
   var responseMapper = UrlFetchApp.fetch(CONF_MAPPER_LINK + roomName + MUC_HOST);
