@@ -3,6 +3,8 @@ var MORE_NUMBERS_LINK = "https://" + BASE_DOMAIN + "/static/dialInInfo.html?room
 var PHONE_NUMBERS_LIST_LINK = "https://api.jitsi.net/phoneNumberList?calendar=true";
 var CONF_MAPPER_LINK = "https://api.jitsi.net/conferenceMapper?conference=";
 var MUC_HOST = "@conference." + BASE_DOMAIN;
+var CONFERANCE_DISPLAY_NAME = "\"<put here your conferance display name>\""
+
 /*
  * Authentication info
  */
@@ -161,7 +163,7 @@ function create3rdPartyConference(calendarEvent) {
   var jwt = createJwt(APP_TOKEN, claims);
 
   data.id = BASE_DOMAIN +"/" + roomName;
-  data.videoUri = "https://" + BASE_DOMAIN +"/" + roomName + "?jwt=" + jwt.toString();
+  data.videoUri = "https://" + BASE_DOMAIN +"/" + roomName + "?jwt=" + jwt.toString() + "#config.callDisplayName=" + encodeURI(CONFERANCE_DISPLAY_NAME);
   data.moreLink = MORE_NUMBERS_LINK + roomName;
   
   var responseMapper = UrlFetchApp.fetch(CONF_MAPPER_LINK + roomName + MUC_HOST);
