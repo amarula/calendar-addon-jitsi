@@ -65,7 +65,7 @@ function createConference(arg) {
         .setPin(conferenceInfo.phonePin);
       dataBuilder.addEntryPoint(phoneEntryPoint);
     });
-    
+
     var moreEntryPoint = ConferenceDataService.newEntryPoint()
         .setEntryPointType(ConferenceDataService.EntryPointType.MORE)
         .setUri(conferenceInfo.moreLink);
@@ -165,13 +165,13 @@ function create3rdPartyConference(calendarEvent) {
   data.id = BASE_DOMAIN +"/" + roomName;
   data.videoUri = "https://" + BASE_DOMAIN +"/" + roomName + "?jwt=" + jwt.toString() + "#config.callDisplayName=" + encodeURI(CONFERANCE_DISPLAY_NAME);
   data.moreLink = MORE_NUMBERS_LINK + roomName;
-  
+
   var responseMapper = UrlFetchApp.fetch(CONF_MAPPER_LINK + roomName + MUC_HOST);
   var jsonobjMapper = JSON.parse(responseMapper.getContentText());
   data.phonePin = jsonobjMapper.id;
-  
+
   data.numbers = [];
-  
+
   var keys = [];
 
   for (var key in jsonobj.numbers) {
