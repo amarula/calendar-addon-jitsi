@@ -58,10 +58,10 @@ function createConference(arg) {
     dataBuilder.setConferenceId(conferenceInfo.id)
         .addConferenceParameter(conferenceTypeParameter)
 
-    conferenceInfo.numbers.forEach(function(number) {
+    conferenceInfo.numbers.forEach(number => {
       var phoneEntryPoint = ConferenceDataService.newEntryPoint()
         .setEntryPointType(ConferenceDataService.EntryPointType.PHONE)
-        .setUri('tel:' + number)
+        .setUri('tel:${number}')
         .setPin(conferenceInfo.phonePin);
       dataBuilder.addEntryPoint(phoneEntryPoint);
     });
@@ -167,8 +167,8 @@ function create3rdPartyConference(calendarEvent) {
 
   const jwt = createJwt(APP_TOKEN, claims);
 
-  data.id = BASE_DOMAIN +"/" + roomName;
-  data.videoUri = "https://" + BASE_DOMAIN +"/" + roomName + "?jwt=" + jwt.toString() + "#config.callDisplayName=" + encodeURI(CONFERANCE_DISPLAY_NAME);
+  data.id = `${BASE_DOMAIN}/${roomName}`;
+  data.videoUri = `https://${BASE_DOMAIN}/${roomName}?jwt=${jwt.toString()}#config.callDisplayName=${encodeURI(`"${calendarEvent.description}"`)}`;
   data.moreLink = MORE_NUMBERS_LINK + roomName;
 
   var responseMapper = UrlFetchApp.fetch(CONF_MAPPER_LINK + roomName + MUC_HOST);
