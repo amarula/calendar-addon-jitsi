@@ -95,7 +95,8 @@ function base64Encode(text, isJson)
   return Utilities.base64EncodeWebSafe(data).replace(/=+$/, '');
 };
 
-function createJwt(privateKey, payload) {
+function createJwt(privateKey, data) {
+  const payload = { };
 
   // Sign token using HMAC with SHA-256 algorithm
   const header = {
@@ -103,10 +104,15 @@ function createJwt(privateKey, payload) {
     typ: 'JWT'
   };
 
+  // add user payload
+  Object.keys(data).forEach(key => {
+    payload[key] = data[key];
+  });
+
   const toSign = base64Encode(header, true) + "." + base64Encode(payload, true);
   const signatureBytes = Utilities.computeHmacSha256Signature(toSign, privateKey, Utilities.Charset.US_ASCII);
   const signature = base64Encode(signatureBytes, false);
-  return toSign + "." + signature;
+  return `${toSign}.${signature}`;
 };
 
 /**
