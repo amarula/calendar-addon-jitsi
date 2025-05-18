@@ -42,16 +42,16 @@ function createConference(arg) {
 
   // Create a conference on the third-party service and return the
   // conference data or errors in a custom JSON object.
-  var conferenceInfo = create3rdPartyConference(calendarEvent);
+  const conferenceInfo = create3rdPartyConference(calendarEvent);
 
   // Build and return a ConferenceData object, either with conference or
   // error information.
-  var dataBuilder = ConferenceDataService.newConferenceDataBuilder();
+  const dataBuilder = ConferenceDataService.newConferenceDataBuilder();
 
   if (!conferenceInfo.error) {
     // No error, so build the ConferenceData object from the
     // returned conference info.
-    var conferenceTypeParameter = ConferenceDataService.newConferenceParameter()
+    const conferenceTypeParameter = ConferenceDataService.newConferenceParameter()
         .setKey('conferenceSolutionType')
         .setValue('jitsi');
 
@@ -66,20 +66,20 @@ function createConference(arg) {
       dataBuilder.addEntryPoint(phoneEntryPoint);
     });
 
-    var moreEntryPoint = ConferenceDataService.newEntryPoint()
+    const moreEntryPoint = ConferenceDataService.newEntryPoint()
         .setEntryPointType(ConferenceDataService.EntryPointType.MORE)
         .setUri(conferenceInfo.moreLink);
       dataBuilder.addEntryPoint(moreEntryPoint);
 
     if (conferenceInfo.videoUri) {
-      var videoEntryPoint = ConferenceDataService.newEntryPoint()
+      const videoEntryPoint = ConferenceDataService.newEntryPoint()
           .setEntryPointType(ConferenceDataService.EntryPointType.VIDEO)
           .setUri(conferenceInfo.videoUri);
       dataBuilder.addEntryPoint(videoEntryPoint);
     }
   } else {
     // Other error type;
-    var error = ConferenceDataService.newConferenceError()
+    const error = ConferenceDataService.newConferenceError()
         .setConferenceErrorType(
             ConferenceDataService.ConferenceErrorType.TEMPORARY);
     dataBuilder.setError(error);
@@ -135,16 +135,15 @@ function createJwt(privateKey, payload) {
  * @return {Object}
  */
 function create3rdPartyConference(calendarEvent) {
-  var data = {};
+  const data = {};
   var jsonobj = {};
-
-  var roomName = Utilities.getUuid().toString();
+  const roomName = Utilities.getUuid().toString();
 
   const now = Date.now();
   const expires = new Date(now);
   expires.setMonth(expires.getMonth() + 12);
 
-  var claims = {
+  const claims = {
     'aud' : APP_ID,
     'iss' : APP_ID,
     'sub' : BASE_DOMAIN,
@@ -160,7 +159,7 @@ function create3rdPartyConference(calendarEvent) {
     'room' : roomName
   }
 
-  var jwt = createJwt(APP_TOKEN, claims);
+  const jwt = createJwt(APP_TOKEN, claims);
 
   data.id = BASE_DOMAIN +"/" + roomName;
   data.videoUri = "https://" + BASE_DOMAIN +"/" + roomName + "?jwt=" + jwt.toString() + "#config.callDisplayName=" + encodeURI(CONFERANCE_DISPLAY_NAME);
@@ -188,11 +187,12 @@ function create3rdPartyConference(calendarEvent) {
  * template strings.
  */
 function hasTemplate(s, categories) {
-    for (var template in categories){
-        if (s.indexOf(template) >= 0){
+    for (const template in categories) {
+        if (s.includes(template) >= 0) {
             return true;
         }
     }
+    return false;
 }
 
 /**
@@ -214,7 +214,7 @@ function randomElement(arr) {
     return arr[randomInt(0, arr.length -1)];
 }
 
-var PATTERNS = [
+const PATTERNS = [
     "_ADJECTIVE__PLURALNOUN__VERB__ADVERB_"
 ];
 
@@ -230,7 +230,7 @@ function generateRoomWithoutSeparator(customDictionary) {
     // being chosen that names from patterns with more options).
     var name = randomElement(PATTERNS);
     var word;
-    var categories = {
+    const categories = {
             "_PLURALNOUN_": customDictionary.pluralNouns,
             "_VERB_": customDictionary.verbs,
             "_ADVERB_": customDictionary.adverbs,
