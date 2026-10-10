@@ -26,6 +26,10 @@ function runSelfTest() {
   log_('dial-in    : ' + (deployment.dialIn || 'none (no phone entry points)'));
   log_('token TTL  : ' + getTokenTtlHours() + ' hours');
   log_('moderator  : ' + grantsModerator());
+  if (deployment.checkinUrl) {
+    log_('check-in   : ' + deployment.checkinUrl);
+    log_('ticket TTL : ' + getTicketTtlHours() + ' hours');
+  }
 
   const roomName = 'selftest-' + Utilities.getUuid().slice(0, 8);
   const participant = {
@@ -62,6 +66,24 @@ function runSelfTest() {
 
   log_('--- dial-in ---');
   log_(JSON.stringify(fetchDialIn(deployment, roomName)));
+
+  if (deployment.mode === 'CHECKIN') {
+    log_('--- room ticket ---');
+    const ticket = createRoomTicket(
+        deployment, roomName, 'selftest@example.com', 'Self test & title');
+    const claims = JSON.parse(Utilities.newBlob(
+        Utilities.base64DecodeWebSafe(ticket.split('.')[1])).getDataAsString());
+    log_(JSON.stringify(claims, null, 2));
+
+    // The point of a ticket is that it names nobody. If this ever reads true,
+    // something identifying has leaked into every invitation.
+    const identifying = ['id', 'name', 'email', 'context']
+        .filter(key => key in claims);
+    log_('ticket names somebody: ' +
+        (identifying.length ? 'YES -- ' + identifying.join(', ') : 'no'));
+    log_('clickable: ' + deployment.checkinUrl + '?g=' +
+        encodeURIComponent(ticket));
+  }
 
   log_('--- self test finished ---');
 }
