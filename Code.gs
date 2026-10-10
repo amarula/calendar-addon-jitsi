@@ -64,12 +64,11 @@ function createConference(arg) {
 function create3rdPartyConference(calendarEvent) {
   const deployment = getDeployment();
   const roomName = Utilities.getUuid();
+  const subject = calendarEvent.summary || '';
 
-  const token = createConferenceToken(
-      deployment, roomName, participantFor_(calendarEvent));
-
-  const videoUri = buildVideoUri_(
-      deployment, roomName, token, calendarEvent.summary);
+  const videoUri = deployment.mode === 'CHECKIN'
+      ? checkinUri_(deployment, roomName, calendarEvent, subject)
+      : jitsiUri_(deployment, roomName, calendarEvent, subject);
 
   const dialIn = fetchDialIn(deployment, roomName);
 
@@ -80,6 +79,65 @@ function create3rdPartyConference(calendarEvent) {
     entryPoints: buildEntryPoints_(videoUri, dialIn),
     error: false,
   };
+}
+
+/**
+ * The join URL for a deployment that routes attendees through the check-in
+ * page.
+ *
+ * Note what is not here: no Jitsi token, and no identity. The link names a room
+ * and nothing else, so it is safe sitting in an invitation indefinitely, and
+ * each attendee gets their own credentials when they click.
+ *
+ * @param {Object} deployment the CHECKIN profile.
+ * @param {string} roomName the bare room name.
+ * @param {Object} calendarEvent a Calendar Event resource.
+ * @param {string} subject the meeting title.
+ * @return {string}
+ */
+function checkinUri_(deployment, roomName, calendarEvent, subject) {
+  const ticket = createRoomTicket(
+      deployment, roomName, organizerOf_(calendarEvent).email, subject);
+  return deployment.checkinUrl + '?g=' + encodeURIComponent(ticket);
+}
+
+/**
+ * The join URL for a deployment where the add-on mints the Jitsi token itself.
+ *
+ * @param {Object} deployment the deployment profile.
+ * @param {string} roomName the bare room name.
+ * @param {Object} calendarEvent a Calendar Event resource.
+ * @param {string} subject the meeting title.
+ * @return {string}
+ */
+function jitsiUri_(deployment, roomName, calendarEvent, subject) {
+  const token = createConferenceToken(
+      deployment, roomName, participantFor_(calendarEvent));
+  return buildVideoUri_(deployment, roomName, token, subject);
+}
+
+/**
+ * The person who booked the meeting.
+ *
+ * Resolved once, as a whole person, because the address and the display name
+ * have to describe the same individual. Taking the address from the organiser
+ * and falling back to the reader for the name would put one person's name
+ * beside another person's identity in the room.
+ *
+ * This is also the identity the check-in page compares against when deciding
+ * who moderates, so it wants the organiser rather than whoever happens to be
+ * looking at the event.
+ *
+ * @param {Object} calendarEvent a Calendar Event resource.
+ * @return {Object} {email, displayName}, possibly with both unset.
+ */
+function organizerOf_(calendarEvent) {
+  const organizer = calendarEvent.organizer || {};
+  if (organizer.email) {
+    return organizer;
+  }
+  const self = (calendarEvent.attendees || []).filter(a => a.self)[0] || {};
+  return self;
 }
 
 /**
@@ -165,17 +223,15 @@ function participantFor_(calendarEvent) {
     return {id: '', name: '', email: '', moderator: grantsModerator()};
   }
 
-  const organizer = calendarEvent.organizer || {};
-  const self = (calendarEvent.attendees || []).filter(a => a.self)[0] || {};
-  const email = self.email || organizer.email || '';
+  const who = organizerOf_(calendarEvent);
+  const email = who.email || '';
 
   // `displayName` is optional in the Calendar API and is frequently absent, so
   // fall back to the local part of the address. Returning an empty name here
   // would be worse than useless: Jitsi replaces an empty name with whatever
   // display name that browser last used, which is how participants end up
   // appearing under a stale name.
-  const name = self.displayName || organizer.displayName ||
-      (email ? email.split('@')[0] : '');
+  const name = who.displayName || (email ? email.split('@')[0] : '');
 
   return {
     id: email,

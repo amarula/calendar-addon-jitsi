@@ -4,13 +4,18 @@
  * No secrets live in this file or in git. Set them in the Apps Script editor
  * under Project Settings > Script Properties:
  *
- *   DEPLOYMENT_MODE     SELF_HOSTED | JAAS | PUBLIC     (default SELF_HOSTED)
+ *   DEPLOYMENT_MODE     SELF_HOSTED | JAAS | PUBLIC | CHECKIN
+ *                                                             (default SELF_HOSTED)
  *   APP_ID              application id, shared with the Jitsi deployment
  *   APP_SECRET          shared secret for HS256          (SELF_HOSTED only)
  *   SELF_HOSTED_DOMAIN  overrides the default domain     (SELF_HOSTED only)
  *   JAAS_PRIVATE_KEY    PKCS#8 PEM private key for RS256 (JAAS only)
  *   JAAS_KEY_ID         "<app id>/<key id>"              (JAAS only)
  *   JAAS_TENANT         "vpaas-magic-cookie-<uuid>"      (JAAS only)
+ *   CHECKIN_URL         the check-in web app's /exec URL (CHECKIN only)
+ *   TICKET_SECRET       shared with the check-in page    (CHECKIN only)
+ *   JITSI_DOMAIN        overrides the default domain     (CHECKIN only)
+ *   TICKET_TTL_HOURS    invitation lifetime, default 720 (CHECKIN only)
  *   TOKEN_TTL_HOURS     JWT lifetime, default 720        (30 days)
  *   GRANT_MODERATOR     "true" to put moderator in the token (default true)
  *   TOKEN_IDENTITY      "none" or "organizer"            (default none)
@@ -81,9 +86,28 @@ function getDeployment() {
         dialIn: DIAL_IN_JITSI_NET,
       };
 
+    // The add-on stops minting Jitsi tokens here. It mints a ticket naming the
+    // room, and the check-in page mints a token for whoever clicks the link.
+    // The consequence worth noticing: the Jitsi signing secret is not in this
+    // project at all, so a compromise of the add-on cannot produce a Jitsi
+    // credential for an arbitrary room.
+    case 'CHECKIN':
+      return {
+        mode: mode,
+        domain: domainOrThrow_(
+            getProperty_('JITSI_DOMAIN') || DEFAULT_SELF_HOSTED_DOMAIN,
+            'JITSI_DOMAIN'),
+        jwtAlgorithm: null,
+        appId: null,
+        checkinUrl: httpsUrlOrThrow_(
+            requiredProperty_('CHECKIN_URL'), 'CHECKIN_URL'),
+        ticketSecret: requiredProperty_('TICKET_SECRET'),
+        dialIn: null,
+      };
+
     default:
       throw new Error('Unknown DEPLOYMENT_MODE "' + mode +
-          '". Expected SELF_HOSTED, JAAS or PUBLIC.');
+          '". Expected SELF_HOSTED, JAAS, PUBLIC or CHECKIN.');
   }
 }
 
@@ -181,6 +205,29 @@ function getTokenIdentity() {
   return raw;
 }
 
+/**
+ * How long a room ticket stays valid, in hours.
+ *
+ * This is the lifetime of the invitation link rather than of any credential:
+ * a ticket carries no identity, so it can afford to be generous where a token
+ * could not. It only has to outlive the gap between booking a meeting and
+ * somebody clicking the link.
+ *
+ * @return {number}
+ */
+function getTicketTtlHours() {
+  const raw = getProperty_('TICKET_TTL_HOURS');
+  if (!raw) {
+    return DEFAULT_TOKEN_TTL_HOURS;
+  }
+
+  const hours = Number(raw);
+  if (!isFinite(hours) || hours <= 0) {
+    throw new Error('TICKET_TTL_HOURS must be a positive number, got "' + raw + '".');
+  }
+  return hours;
+}
+
 function getProperty_(name) {
   return PropertiesService.getScriptProperties().getProperty(name);
 }
@@ -190,6 +237,22 @@ function requiredProperty_(name) {
   if (!value) {
     throw new Error('Script property ' + name + ' is not set. See Config.gs ' +
         'for the full list of properties this add-on reads.');
+  }
+  return value;
+}
+
+/**
+ * A URL that will end up in an invitation, so it has to be https. An http://
+ * or mistyped value here would put a broken or downgraded link in front of
+ * every attendee, and it would look like a working meeting until they clicked.
+ *
+ * @param {string} value the configured URL.
+ * @param {string} name the property name, for the error message.
+ * @return {string}
+ */
+function httpsUrlOrThrow_(value, name) {
+  if (typeof value !== 'string' || value.indexOf('https://') !== 0) {
+    throw new Error(name + ' must be an https URL, got "' + value + '".');
   }
   return value;
 }

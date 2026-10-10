@@ -33,17 +33,36 @@ No secrets are stored in the source. Set them in the Apps Script editor under
 | `TOKEN_TTL_HOURS` | no | JWT lifetime. Default `720` (30 days). |
 | `GRANT_MODERATOR` | no | `"false"` to omit the moderator claim. Default `true`. |
 | `TOKEN_IDENTITY` | no | `"none"` or `"organizer"`. Default `"none"`. |
+| `CHECKIN_URL` | `CHECKIN` | The check-in web app's `/exec` URL. Must be https. |
+| `TICKET_SECRET` | `CHECKIN` | Shared with the check-in page. |
+| `TICKET_TTL_HOURS` | no | Invitation lifetime. Default `720` (30 days). |
+| `JITSI_DOMAIN` | no | Overrides the domain. Default `jitsi.amarulasolutions.com`. |
 
 ### Choosing a deployment
 
-| | `SELF_HOSTED` | `JAAS` | `PUBLIC` |
-|---|---|---|---|
-| Domain | `SELF_HOSTED_DOMAIN` | `8x8.vc` | `meet.jit.si` |
-| Token | HS256, shared secret | RS256, RSA private key | none |
-| Dial-in | none | 8x8.vc mapper | `api.jitsi.net` |
+| | `SELF_HOSTED` | `JAAS` | `PUBLIC` | `CHECKIN` |
+|---|---|---|---|---|
+| Domain | `SELF_HOSTED_DOMAIN` | `8x8.vc` | `meet.jit.si` | `JITSI_DOMAIN` |
+| Token | HS256, shared secret | RS256, RSA private key | none | **none — minted by the check-in page** |
+| Dial-in | none | 8x8.vc mapper | `api.jitsi.net` | none |
+| Holds the Jitsi secret | yes | yes | n/a | **no** |
 
 `SELF_HOSTED` targets an install running token authentication
 (`authentication = "token"` in Prosody, `anonymousdomain` on the client).
+
+`CHECKIN` is the one to use if you want attendees to arrive with their own
+names. The add-on mints a **room ticket** — which room, who booked it, what it
+is called, and no identity — and the invitation links to the check-in web app
+in `checkin/`. When somebody clicks, that page works out who they are and mints
+a token naming them, giving moderator to the person the ticket says booked it.
+
+Two things follow from that, and both are the point:
+
+- **The add-on no longer holds the Jitsi signing secret.** It holds only
+  `TICKET_SECRET`, so a compromised add-on cannot mint a Jitsi credential for
+  an arbitrary room.
+- **Nothing identifying sits in the invitation.** The ticket names no one, so
+  it is harmless in an attendee's calendar or a forwarded email.
 
 `PUBLIC` mints no token. A token signed with your own secret authenticates
 nothing on `meet.jit.si` — that service runs its own sign-in — so sending one

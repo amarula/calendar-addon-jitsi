@@ -51,6 +51,44 @@ function createConferenceToken(deployment, roomName, user) {
 }
 
 /**
+ * Marks a token as a room ticket rather than a participant credential.
+ *
+ * The two are signed by different secrets, but labelling them means a mix-up
+ * still fails closed instead of being accepted as the wrong kind of token.
+ */
+const TICKET_PURPOSE = 'room-ticket';
+
+/**
+ * Mints a room ticket for the check-in deployment.
+ *
+ * A ticket describes a meeting, not a person: which room, who booked it, what
+ * it is called. All of that can sit in an invitation for weeks without doing
+ * anybody any good, because it names no one. Identity is added later, by the
+ * check-in page, at the moment somebody clicks.
+ *
+ * @param {Object} deployment the CHECKIN profile from getDeployment().
+ * @param {string} roomName the bare room name.
+ * @param {string} organizer the address of whoever booked the meeting.
+ * @param {string} subject the meeting title.
+ * @return {string} a signed ticket.
+ */
+function createRoomTicket(deployment, roomName, organizer, subject) {
+  const now = Math.floor(Date.now() / 1000);
+
+  return signToken_(
+      {alg: 'HS256', typ: 'JWT'},
+      {
+        room: roomName,
+        organizer: organizer,
+        subject: subject || '',
+        purpose: TICKET_PURPOSE,
+        exp: now + Math.round(getTicketTtlHours() * 3600),
+      },
+      signingInput => base64UrlEncodeBytes_(Utilities.computeHmacSha256Signature(
+          signingInput, deployment.ticketSecret, Utilities.Charset.UTF_8)));
+}
+
+/**
  * Claims for a self-hosted deployment running token authentication.
  *
  * @param {Object} deployment as returned by getDeployment().
