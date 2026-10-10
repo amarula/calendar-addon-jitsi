@@ -460,6 +460,48 @@ function base64UrlDecode_(text) {
  * ------------------------------------------------------------------ */
 
 /**
+ * Lists the script properties this project holds.
+ *
+ * Exists so the two secrets shared with the calendar add-on can be compared
+ * without anyone reading a key aloud. "The ticket is not signed correctly"
+ * means TICKET_SECRET differs between the two projects, and neither value is
+ * readable from outside -- script properties are not exposed through clasp or
+ * the Apps Script REST API -- so length is the practical proxy. Run the same
+ * function in both projects and compare.
+ *
+ * Whitespace is called out explicitly, because a pasted value that picked up a
+ * trailing newline is the same length off-by-one that looks like a typo.
+ */
+function listScriptProperties() {
+  const all = PropertiesService.getScriptProperties().getProperties();
+  const names = Object.keys(all).sort();
+  const secret = ['TICKET_SECRET', 'JITSI_APP_SECRET'];
+
+  if (!names.length) {
+    console.log('No script properties are set on this project.');
+    return;
+  }
+
+  console.log(names.length + ' propert' + (names.length === 1 ? 'y' : 'ies') +
+      ' on this project:');
+
+  names.forEach(name => {
+    const raw = String(all[name]);
+    const shown = secret.indexOf(name) >= 0
+        ? '[' + raw.length + ' characters, hidden]'
+        : raw;
+    console.log('  ' + name + ' = ' + shown +
+        (raw.trim() !== raw ? '   <-- has leading or trailing whitespace' : ''));
+  });
+
+  if (all.TICKET_SECRET) {
+    console.log('');
+    console.log('TICKET_SECRET is ' + String(all.TICKET_SECRET).length +
+        ' characters. It must be identical in the calendar add-on.');
+  }
+}
+
+/**
  * Prints a ready-to-click check-in link for a throwaway room, so the page can
  * be exercised before the calendar add-on knows it exists.
  */

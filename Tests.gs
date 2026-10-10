@@ -143,11 +143,20 @@ function listScriptProperties() {
       ' on this project:');
 
   names.forEach(name => {
-    const value = all[name];
+    const raw = String(all[name]);
     log_('  ' + name + ' = ' + (secret.indexOf(name) >= 0
-        ? '[' + String(value).length + ' characters, hidden]'
-        : value));
+        ? '[' + raw.length + ' characters, hidden]'
+        : raw) +
+        (raw.trim() !== raw ? '   <-- has leading or trailing whitespace' : ''));
   });
+
+  // The value the check-in page checks signatures with has to match this one
+  // exactly; the length is the only comparison available from here.
+  if (all.TICKET_SECRET) {
+    log_('');
+    log_('TICKET_SECRET is ' + String(all.TICKET_SECRET).length +
+        ' characters. It must be identical in the check-in project.');
+  }
 
   if (names.indexOf('DEPLOYMENT_MODE') < 0) {
     log_('');
