@@ -22,6 +22,68 @@ holds the Jitsi signing secret, which the add-on must never have.
 | `ALLOWED_DOMAIN` | no | Default `amarulasolutions.com`. Anyone outside it joins as a guest. |
 | `TOKEN_TTL_HOURS` | no | Default `5`. The token is minted at click time, so it only has to outlive the meeting. |
 
+## How the two projects fit together
+
+Two Apps Script projects, and the split is the point:
+
+```
+add-on project    holds TICKET_SECRET          → can describe a room, cannot mint a Jitsi credential
+check-in project  holds TICKET_SECRET and      → can mint a Jitsi credential for the room a ticket
+                  JITSI_APP_SECRET                names, for the person who clicked
+```
+
+Neither can do the other's job. A compromise of the add-on yields the ability
+to forge *tickets*, not *tokens*; the Jitsi signing key is not in that project
+at all.
+
+They never talk to each other directly. The add-on puts a link in an invitation
+and the browser carries it to the check-in page — so no firewall rule, no
+service-to-service credential, and no `urlFetchWhitelist` entry is needed.
+
+The dependency runs one way only: **the add-on needs the check-in project, not
+the reverse.** Deleting the check-in deployment breaks every join link; nothing
+you do to the add-on breaks the check-in page.
+
+## Setting it up from scratch
+
+1. **Create a standalone Apps Script project.** In the editor: *File → New →
+   Project*, or `clasp create-script --type standalone --title "Jitsi
+   Check-in"`. Copy `Checkin.gs` and `appsscript.json` from this directory in.
+2. **Set the script properties** from the table above. Generate `TICKET_SECRET`
+   fresh — `openssl rand -base64 32` — rather than inventing one.
+3. **Authorise it.** Run any function once from the editor and approve the
+   prompt. A web app cannot serve until its owner has authorised it, and until
+   then every request gets a Drive permission error rather than anything
+   useful — which reads as a broken deployment rather than a missing
+   authorisation.
+4. **Deploy it as a web app** and copy the `/exec` URL. The `webapp` block in
+   `appsscript.json` already sets `Execute as: Me` and `Who has access:
+   Anyone`; `Anyone` is required, not incidental, since outside attendees have
+   to be able to reach the page in order to be sent down the guest path.
+5. **Point the add-on at it.** On the *add-on's* project — a different project,
+   with its own properties — set:
+
+   | Property | Value |
+   |---|---|
+   | `DEPLOYMENT_MODE` | `CHECKIN` |
+   | `CHECKIN_URL` | the `/exec` URL from step 4 |
+   | `TICKET_SECRET` | **byte-identical to this project's** |
+
+6. **Verify** with `makeTestLink` here and `runSelfTest` there, then create a
+   Calendar event and click the link.
+
+Step 5 is where people lose time. Script properties are per-project, so setting
+`TICKET_SECRET` here does nothing for the add-on, and the two values must match
+exactly — a mismatch produces *"The ticket is not signed correctly"*, which
+identifies neither which side is wrong nor that a mismatch is even the problem.
+Both projects expose a `listScriptProperties` function that reports the secret
+by length, so the two can be compared without anyone reading a key aloud.
+
+**This project is versioned; the add-on's test deployment is not.** After any
+change here, `clasp push` alone is not enough — the `/exec` URL keeps serving
+the old version until you also run `clasp redeploy <deploymentId>`. Nothing
+will look broken; it will simply behave as it did before your change.
+
 ## Deployment
 
 **Deploy → New deployment → Web app**, or the `webapp` block in

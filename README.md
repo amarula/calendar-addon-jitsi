@@ -15,6 +15,8 @@ user adds a "Jitsi Meet" conference to an event.
 | `Jwt.gs` | JWT signing (HS256 and RS256) |
 | `JitsiDialIn.gs` | dial-in PIN and phone numbers |
 | `Code.gs` | `createConference` entry point and `ConferenceData` assembly |
+| `Tests.gs` | editor-runnable checks: `runSelfTest`, `listScriptProperties` |
+| `checkin/` | the check-in web app — a **separate Apps Script project**, with its own README |
 
 ## Configuration
 
@@ -63,6 +65,11 @@ Two things follow from that, and both are the point:
   an arbitrary room.
 - **Nothing identifying sits in the invitation.** The ticket names no one, so
   it is harmless in an attendee's calendar or a forwarded email.
+
+It is a second Apps Script project rather than part of this one, because it
+holds the Jitsi signing secret and this project must not. Setting one up —
+including the `TICKET_SECRET` that has to match on both sides — is documented
+in [`checkin/README.md`](checkin/README.md).
 
 `PUBLIC` mints no token. A token signed with your own secret authenticates
 nothing on `meet.jit.si` — that service runs its own sign-in — so sending one
