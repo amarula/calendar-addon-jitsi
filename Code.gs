@@ -169,9 +169,17 @@ function participantFor_(calendarEvent) {
   const self = (calendarEvent.attendees || []).filter(a => a.self)[0] || {};
   const email = self.email || organizer.email || '';
 
+  // `displayName` is optional in the Calendar API and is frequently absent, so
+  // fall back to the local part of the address. Returning an empty name here
+  // would be worse than useless: Jitsi replaces an empty name with whatever
+  // display name that browser last used, which is how participants end up
+  // appearing under a stale name.
+  const name = self.displayName || organizer.displayName ||
+      (email ? email.split('@')[0] : '');
+
   return {
     id: email,
-    name: organizer.displayName || '',
+    name: name,
     email: email,
     moderator: grantsModerator(),
   };
