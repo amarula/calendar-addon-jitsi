@@ -116,6 +116,51 @@ function runConferenceDryRun() {
 }
 
 /**
+ * Lists the script properties this project actually holds.
+ *
+ * "I set it and nothing changed" is almost always one of three things: the
+ * save did not land, the value went to a different project, or the name has a
+ * typo or stray space. All three are visible in a list of names, and none are
+ * visible from the outside -- script properties cannot be read through clasp
+ * or the Apps Script API, only from inside the project.
+ *
+ * Values are printed for ordinary settings. Secrets are reported by length, so
+ * this can be run and its output pasted around without leaking a key.
+ */
+function listScriptProperties() {
+  const all = PropertiesService.getScriptProperties().getProperties();
+  const names = Object.keys(all).sort();
+
+  if (!names.length) {
+    log_('No script properties are set on this project.');
+    log_('If you just set some, check you are in the right project and that ' +
+        'you pressed "Save script properties".');
+    return;
+  }
+
+  const secret = ['APP_SECRET', 'TICKET_SECRET', 'JAAS_PRIVATE_KEY'];
+  log_(names.length + ' propert' + (names.length === 1 ? 'y' : 'ies') +
+      ' on this project:');
+
+  names.forEach(name => {
+    const value = all[name];
+    log_('  ' + name + ' = ' + (secret.indexOf(name) >= 0
+        ? '[' + String(value).length + ' characters, hidden]'
+        : value));
+  });
+
+  if (names.indexOf('DEPLOYMENT_MODE') < 0) {
+    log_('');
+    log_('DEPLOYMENT_MODE is not set, which is why getDeployment() falls back ' +
+        'to SELF_HOSTED.');
+  } else if (all.DEPLOYMENT_MODE !== 'CHECKIN') {
+    log_('');
+    log_('DEPLOYMENT_MODE is "' + all.DEPLOYMENT_MODE + '", so this project ' +
+        'is not using the check-in page. The value is case-sensitive.');
+  }
+}
+
+/**
  * console.log with a single string argument, so nothing depends on the
  * runtime's format-specifier support.
  *
