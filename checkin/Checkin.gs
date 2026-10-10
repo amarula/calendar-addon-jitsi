@@ -320,16 +320,19 @@ function messagePage_(title, detail) {
  * @return {HtmlOutput}
  */
 function diagnosticPage_() {
-  const user = Session.getActiveUser();
-  const email = activeEmail_();
-  const rows = [
-    ['getActiveUser().getEmail()', email || '(empty)'],
-    ['treated as', isAllowed_(email) ? 'company member' : 'guest'],
-    ['allowed domain', config_().allowedDomain],
-    ['getTemporaryActiveUserKey()', user.getTemporaryActiveUserKey() || '(empty)'],
-    ['effective (owner) user', Session.getEffectiveUser().getEmail() || '(empty)'],
-    ['script url', ScriptApp.getService().getUrl() || '(none)'],
+  // Each probe runs independently. A diagnostic page that dies on the first
+  // surprise is useless at exactly the moment it is needed, and some of these
+  // depend on properties that may not be set yet.
+  const probes = [
+    ['getActiveUser().getEmail()', () => activeEmail_() || '(empty)'],
+    ['treated as', () => isAllowed_(activeEmail_()) ? 'company member' : 'guest'],
+    ['allowed domain', () => config_().allowedDomain],
+    ['getTemporaryActiveUserKey()', () => Session.getTemporaryActiveUserKey() || '(empty)'],
+    ['effective (owner) user', () => Session.getEffectiveUser().getEmail() || '(empty)'],
+    ['script url', () => ScriptApp.getService().getUrl() || '(none)'],
   ];
+
+  const rows = probes.map(probe => [probe[0], runProbe_(probe[1])]);
 
   const body = rows.map(row =>
       '<tr><th style="text-align:left;padding:.4rem 1rem .4rem 0;' +
@@ -347,6 +350,20 @@ function diagnosticPage_() {
       'If the second shows an empty address, the guest fallback works.</p>' +
       '<table style="border-collapse:collapse">' + body + '</table>' +
       '</div>');
+}
+
+/**
+ * Runs one diagnostic probe, reporting a failure instead of propagating it.
+ *
+ * @param {function(): string} probe the value to read.
+ * @return {string}
+ */
+function runProbe_(probe) {
+  try {
+    return String(probe());
+  } catch (err) {
+    return 'ERROR: ' + err.message;
+  }
 }
 
 function escapeHtml_(text) {
