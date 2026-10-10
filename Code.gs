@@ -1,253 +1,167 @@
-var BASE_DOMAIN = "meet.jit.si";
-var MORE_NUMBERS_LINK = "https://" + BASE_DOMAIN + "/static/dialInInfo.html?room=";
-var PHONE_NUMBERS_LIST_LINK = "https://api.jitsi.net/phoneNumberList?calendar=true";
-var CONF_MAPPER_LINK = "https://api.jitsi.net/conferenceMapper?conference=";
-var MUC_HOST = "@conference." + BASE_DOMAIN;
-var CONFERANCE_DISPLAY_NAME = "\"<put here your conferance display name>\""
-
-/*
- * Authentication info
+/**
+ * Entry point for the Jitsi Meet conference solution.
+ *
+ * Called by Calendar when a user adds this add-on's conference type to an
+ * event. Configuration lives in Config.gs, token minting in Jwt.gs and dial-in
+ * lookups in JitsiDialIn.gs.
  */
-var APP_ID = "<your app id>";
-var APP_TOKEN = "<your app token>";
 
 /**
- *  Creates a conference, then builds and returns a ConferenceData object
- *  with the corresponding conference information. This method is called
- *  when a user selects a conference solution defined by the add-on that
- *  uses this function as its 'onCreateFunction' in the add-on manifest.
+ * Creates a conference, then builds and returns a ConferenceData object with
+ * the corresponding conference information. Referenced as `onCreateFunction`
+ * by the conference solution in appsscript.json.
  *
- *  @param {Object} arg The default argument passed to a 'onCreateFunction';
- *      it carries information about the Google Calendar event.
- *  @return {ConferenceData}
+ * @param {Object} arg the argument passed to an onCreateFunction; carries
+ *     information about the Google Calendar event.
+ * @return {ConferenceData}
  */
 function createConference(arg) {
   const eventData = arg.eventData;
-  const calendarId = eventData.calendarId;
-  const eventId = eventData.eventId;
 
-  // Retrieve the Calendar event information using the Calendar
-  // Advanced service.
-  var calendarEvent;
+  // Retrieve the Calendar event information using the Calendar advanced
+  // service.
+  let calendarEvent;
   try {
-    calendarEvent = Calendar.Events.get(calendarId, eventId);
+    calendarEvent = Calendar.Events.get(eventData.calendarId, eventData.eventId);
   } catch (err) {
-    // The calendar event does not exist just yet; just proceed with the
-    // given event ID and allow the event details to sync later.
+    // The calendar event does not exist just yet; proceed with the given event
+    // ID and allow the event details to sync later.
     console.log(err);
-    calendarEvent = {
-      id: eventId,
-    };
+    calendarEvent = {id: eventData.eventId};
   }
 
-  // Create a conference on the third-party service and return the
-  // conference data or errors in a custom JSON object.
-  const conferenceInfo = create3rdPartyConference(calendarEvent);
-
-  // Build and return a ConferenceData object, either with conference or
-  // error information.
   const dataBuilder = ConferenceDataService.newConferenceDataBuilder();
+  const conference = create3rdPartyConference(calendarEvent);
 
-  if (!conferenceInfo.error) {
-    // No error, so build the ConferenceData object from the
-    // returned conference info.
-    const conferenceTypeParameter = ConferenceDataService.newConferenceParameter()
-        .setKey('conferenceSolutionType')
-        .setValue('jitsi');
-
-    dataBuilder.setConferenceId(conferenceInfo.id)
-        .addConferenceParameter(conferenceTypeParameter)
-
-    conferenceInfo.numbers.forEach(number => {
-      var phoneEntryPoint = ConferenceDataService.newEntryPoint()
-        .setEntryPointType(ConferenceDataService.EntryPointType.PHONE)
-        .setUri('tel:${number}')
-        .setPin(conferenceInfo.phonePin);
-      dataBuilder.addEntryPoint(phoneEntryPoint);
-    });
-
-    const moreEntryPoint = ConferenceDataService.newEntryPoint()
-        .setEntryPointType(ConferenceDataService.EntryPointType.MORE)
-        .setUri(conferenceInfo.moreLink);
-      dataBuilder.addEntryPoint(moreEntryPoint);
-
-    if (conferenceInfo.videoUri) {
-      const videoEntryPoint = ConferenceDataService.newEntryPoint()
-          .setEntryPointType(ConferenceDataService.EntryPointType.VIDEO)
-          .setUri(conferenceInfo.videoUri);
-      dataBuilder.addEntryPoint(videoEntryPoint);
-    }
-  } else {
-    // Other error type;
-    const error = ConferenceDataService.newConferenceError()
-        .setConferenceErrorType(
-            ConferenceDataService.ConferenceErrorType.TEMPORARY);
-    dataBuilder.setError(error);
+  if (conference.error) {
+    return dataBuilder.setError(ConferenceDataService.newConferenceError()
+        .setConferenceErrorType(ConferenceDataService.ConferenceErrorType.TEMPORARY))
+        .build();
   }
 
-  // Don't forget to build the ConferenceData object.
+  dataBuilder
+      .setConferenceId(conference.id)
+      // Documented as required for Workspace add-ons and ignored for
+      // conferencing add-ons, which is what this is. Set for correctness;
+      // it is not what drives the conference icon.
+      .setConferenceSolutionId(CONFERENCE_SOLUTION_ID)
+      .addConferenceParameter(ConferenceDataService.newConferenceParameter()
+          .setKey('conferenceSolutionType')
+          .setValue('jitsi'));
+
+  conference.entryPoints.forEach(entryPoint => dataBuilder.addEntryPoint(entryPoint));
+
   return dataBuilder.build();
 }
 
-function base64Encode(text, isJson)
-{
-  const data = isJson ? JSON.stringify(text) : text;
-  return Utilities.base64EncodeWebSafe(data).replace(/=+$/, '');
-};
-
-function createJwt(privateKey, data) {
-  const payload = { };
-
-  // Sign token using HMAC with SHA-256 algorithm
-  const header = {
-    alg: 'HS256',
-    typ: 'JWT'
-  };
-
-  // add user payload
-  Object.keys(data).forEach(key => {
-    payload[key] = data[key];
-  });
-
-  const toSign = base64Encode(header, true) + "." + base64Encode(payload, true);
-  const signatureBytes = Utilities.computeHmacSha256Signature(toSign, privateKey, Utilities.Charset.US_ASCII);
-  const signature = base64Encode(signatureBytes, false);
-  return `${toSign}.${signature}`;
-};
-
 /**
- *  Contact the third-party conferencing system to create a conference there,
- *  using the provided calendar event information. Collects and returns the
- *  conference data returned by the third-party system in a custom JSON object
- *  with the following fields:
+ * Creates the conference on the Jitsi deployment and collects everything
+ * needed to describe it to Calendar.
  *
- *    data.adminEmail - the conference administrator's email
- *    data.conferenceLegalNotice - the conference legal notice text
- *    data.error - Only present if there was an error during
- *         conference creation. Equal to 'AUTH' if the add-on user needs to
- *         authorize on the third-party system.
- *    data.id - the conference ID
- *    data.phoneNumber - the conference phone entry point phone number
- *    data.phonePin - the conference phone entry point PIN
- *    data.videoPasscode - the conference video entry point passcode
- *    data.videoUri - the conference video entry point URI
- *
- *  The above fields are specific to this example; which conference information
- *  you add-on needs is dependent on the third-party conferencing system
- *  requirements.
- *
- * @param {Object} calendarEvent A Calendar Event resource object returned by
- *     the Google Calendar API.
- * @return {Object}
+ * @param {Object} calendarEvent a Calendar Event resource.
+ * @return {Object} {id, videoUri, entryPoints, roomName, error}
  */
 function create3rdPartyConference(calendarEvent) {
-  const data = {};
-  var jsonobj = {};
-  const roomName = Utilities.getUuid().toString();
+  const deployment = getDeployment();
+  const roomName = Utilities.getUuid();
 
-  const now = Date.now();
-  const expires = new Date(now);
-  expires.setMonth(expires.getMonth() + 12);
+  const token = createConferenceToken(
+      deployment, roomName, participantFor_(calendarEvent));
 
-  const claims = {
-    'aud' : APP_ID,
-    'iss' : APP_ID,
-    'sub' : BASE_DOMAIN,
-    'exp' : Math.floor(expires.getTime() / 1000),
-    'context' : {
-      "user": {
-        "avatar":"",
-        "name":"",
-        "email":"",
-        "id":""},
-        "group":""
-    },
-    'room' : roomName
+  const videoUri = buildVideoUri_(
+      deployment, roomName, token, calendarEvent.summary);
+
+  const dialIn = fetchDialIn(deployment, roomName);
+
+  return {
+    id: deployment.domain + '/' + roomName,
+    videoUri: videoUri,
+    roomName: roomName,
+    entryPoints: buildEntryPoints_(videoUri, dialIn),
+    error: false,
+  };
+}
+
+/**
+ * Builds the entry point list.
+ *
+ * @param {string} videoUri the join URL.
+ * @param {Object} dialIn as returned by fetchDialIn().
+ * @return {EntryPoint[]}
+ */
+function buildEntryPoints_(videoUri, dialIn) {
+  const entryPoints = [
+    ConferenceDataService.newEntryPoint()
+        .setEntryPointType(ConferenceDataService.EntryPointType.VIDEO)
+        .setUri(videoUri),
+  ];
+
+  dialIn.numbers.forEach(number => {
+    const phoneEntryPoint = ConferenceDataService.newEntryPoint()
+        .setEntryPointType(ConferenceDataService.EntryPointType.PHONE)
+        .setUri('tel:' + number);
+    if (dialIn.pin) {
+      phoneEntryPoint.setPin(dialIn.pin);
+    }
+    entryPoints.push(phoneEntryPoint);
+  });
+
+  // A MORE entry point may not be the only entry point, and it only means
+  // anything when the deployment actually has a dial-in gateway.
+  if (dialIn.moreLink) {
+    entryPoints.push(ConferenceDataService.newEntryPoint()
+        .setEntryPointType(ConferenceDataService.EntryPointType.MORE)
+        .setUri(dialIn.moreLink));
   }
 
-  const jwt = createJwt(APP_TOKEN, claims);
+  return entryPoints;
+}
 
-  data.id = `${BASE_DOMAIN}/${roomName}`;
-  data.videoUri = `https://${BASE_DOMAIN}/${roomName}?jwt=${jwt.toString()}#config.callDisplayName=${encodeURI(`"${calendarEvent.description}"`)}`;
-  data.moreLink = MORE_NUMBERS_LINK + roomName;
+/**
+ * @param {Object} deployment as returned by getDeployment().
+ * @param {string} roomName the bare room name.
+ * @param {?string} token the JWT, if the deployment uses one.
+ * @param {?string} subject the meeting title, shown in the Jitsi UI.
+ * @return {string}
+ */
+function buildVideoUri_(deployment, roomName, token, subject) {
+  let uri = 'https://' + deployment.domain + '/' + roomPath(deployment, roomName);
 
-  var responseMapper = UrlFetchApp.fetch(CONF_MAPPER_LINK + roomName + MUC_HOST);
-  var jsonobjMapper = JSON.parse(responseMapper.getContentText());
-  data.phonePin = jsonobjMapper.id;
-
-  data.numbers = [];
-
-  var keys = [];
-
-  for (var key in jsonobj.numbers) {
-    if (jsonobj.numbers.hasOwnProperty(key)) {
-      data.numbers.push.apply(data.numbers, jsonobj.numbers[key]);
-    }
+  if (token) {
+    uri += '?jwt=' + encodeURIComponent(token);
   }
 
-  return data;
-}
+  if (subject) {
+    // `config.subject` is what the Jitsi UI renders as the meeting name.
+    // `config.callDisplayName`, which this add-on used previously, is the iOS
+    // CallKit name and does nothing here. The value sits in the URL fragment
+    // and must be percent-encoded: encodeURI leaves `&`, `=` and `#` alone,
+    // which would let a title inject further config parameters.
+    uri += '#config.subject=' + encodeURIComponent(subject);
+  }
 
-/*
- * Returns true if the string 's' contains one of the
- * template strings.
- */
-function hasTemplate(s, categories) {
-    for (const template in categories) {
-        if (s.includes(template) >= 0) {
-            return true;
-        }
-    }
-    return false;
+  return uri;
 }
 
 /**
- * Generates random int within the range [min, max]
- * @param min the minimum value for the generated number
- * @param max the maximum value for the generated number
- * @returns random int number
+ * Describes the participant the shared token is minted for.
+ *
+ * The token ends up in an invitation URL that every attendee receives, so
+ * there is exactly one of them, not one per participant. The organiser is the
+ * best available stand-in for "who this meeting belongs to".
+ *
+ * @param {Object} calendarEvent a Calendar Event resource.
+ * @return {Object} {id, name, email, moderator}
  */
-function randomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+function participantFor_(calendarEvent) {
+  const organizer = calendarEvent.organizer || {};
+  const self = (calendarEvent.attendees || []).filter(a => a.self)[0] || {};
+  const email = self.email || organizer.email || '';
 
-/**
- * Get random element from array or string.
- * @param {Array|string} arr source
- * @returns array element or string character
- */
-function randomElement(arr) {
-    return arr[randomInt(0, arr.length -1)];
-}
-
-const PATTERNS = [
-    "_ADJECTIVE__PLURALNOUN__VERB__ADVERB_"
-];
-
-/**
- * Generates new room name.
- * @param customDictionary a dictionary containing keys pluralNouns, verbs,
- * adverbs and adjectives, values are array of strings.
- */
-function generateRoomWithoutSeparator(customDictionary) {
-    // Note that if more than one pattern is available, the choice of
-    // 'name' won't have a uniform distribution amongst all patterns (names
-    // from patterns with fewer options will have higher probability of
-    // being chosen that names from patterns with more options).
-    var name = randomElement(PATTERNS);
-    var word;
-    const categories = {
-            "_PLURALNOUN_": customDictionary.pluralNouns,
-            "_VERB_": customDictionary.verbs,
-            "_ADVERB_": customDictionary.adverbs,
-            "_ADJECTIVE_": customDictionary.adjectives
-        };
-    while (hasTemplate(name, categories)) {
-        for (var template in categories) {
-            word = randomElement(categories[template]);
-            name = name.replace(template, word);
-        }
-    }
-
-    return name;
+  return {
+    id: email,
+    name: organizer.displayName || '',
+    email: email,
+    moderator: grantsModerator(),
+  };
 }
