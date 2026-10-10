@@ -27,14 +27,14 @@
         {
           "id": 1,
           "name": "Jitsi Meet",
-          "logoUrl": "https://lh3.googleusercontent.com/-WuPhRsFGKUc/XCng7m_FIxI/AAAAAAAAAGg/ASH4GCGDMs0d55OZQGCSIQHXjRAKnkeTQCLcBGAs/s400/jitsi-logo-96x96.png",
+          "logoUrl": "https://lh3.googleusercontent.com/REPLACE-WITH-MARKETPLACE-STORE-LISTING-ICON-URL",
           "onCreateFunction": "createConference"
         }
       ]
     },
     "common": {
       "name": "Jitsi Meet",
-      "logoUrl": "https://lh3.googleusercontent.com/-WuPhRsFGKUc/XCng7m_FIxI/AAAAAAAAAGg/ASH4GCGDMs0d55OZQGCSIQHXjRAKnkeTQCLcBGAs/s400/jitsi-logo-96x96.png",
+      "logoUrl": "https://lh3.googleusercontent.com/REPLACE-WITH-MARKETPLACE-STORE-LISTING-ICON-URL",
       "homepageTrigger": {
         "enabled": false
       }
