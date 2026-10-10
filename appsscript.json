@@ -26,14 +26,14 @@
         {
           "id": 1,
           "name": "Jitsi Meet",
-          "logoUrl": "https://lh3.googleusercontent.com/REPLACE-WITH-MARKETPLACE-STORE-LISTING-ICON-URL",
+          "logoUrl": "https://lh3.googleusercontent.com/JBxEsLED57Q0bB3OJoqJZSiaV2DNZEK4XsYv-lu0KI5s15L5_YNt",
           "onCreateFunction": "createConference"
         }
       ]
     },
     "common": {
       "name": "Jitsi Meet",
-      "logoUrl": "https://lh3.googleusercontent.com/REPLACE-WITH-MARKETPLACE-STORE-LISTING-ICON-URL",
+      "logoUrl": "https://lh3.googleusercontent.com/JBxEsLED57Q0bB3OJoqJZSiaV2DNZEK4XsYv-lu0KI5s15L5_YNt",
       "homepageTrigger": {
         "enabled": false
       }
