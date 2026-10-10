@@ -145,3 +145,9 @@ as an ordinary script file, silently leaving the real manifest unchanged.
 
 `urlFetchWhitelist` in the manifest lists every host the add-on fetches. It
 requires `https://` URLs with a non-empty path.
+
+**Publishing is a separate operation from deploying**, and it happens in the
+Cloud console rather than here. [`docs/publishing.md`](docs/publishing.md)
+covers the deployment ID that ties the listing to this code, the three commands
+that actually ship a change, the settings that cannot be changed once saved,
+and how the conference icon gets its URL.

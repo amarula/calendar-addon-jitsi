@@ -158,3 +158,64 @@ Workspace policy tightens, or the deployment is ever switched to
 fall through to the guest path — a meeting where nobody has moderator and
 everyone is prompted for a name. `?diag=1` exists to catch exactly that; it is
 worth opening after any change to the deployment settings.
+
+## Branding the consent prompt
+
+Reading the visitor's identity needs a scope, and a scope needs a grant — so
+each person authorises this page **once**, the first time they join, and is
+never asked again. The page is otherwise invisible to attendees, who only ever
+see a "Your meeting is ready" button.
+
+The problem is what that one screen looks like. A script on Google's **default
+GCP project** has no branding to draw on, so Google shows the generic developer
+name:
+
+```
+Jitsi Check-in
+Jitsi Check-in needs your permission to access your data on Google.
+GoogleAppsScript                      ← this
+```
+
+`GoogleAppsScript` reads like a phishing page, and for anyone outside the
+domain it may also carry an *unverified app* warning. Both are fixable, and
+both are fixable the same way.
+
+### What to do
+
+1. **Create or choose a standard GCP project** in your organization. The org is
+   required — an *Internal* consent screen is only offered for a project that
+   belongs to one (check **IAM & Admin → Settings → Location**; if it is blank,
+   the project is not in the org).
+2. **Attach it** to this script: Apps Script editor → **Project Settings →
+   Google Cloud Platform (GCP) Project → Change project** → enter the project
+   number.
+3. **Set the user type.** Cloud console → **Google Auth Platform → Audience →
+   User type: Internal**. This bypasses verification entirely for accounts in
+   your domain: no *unverified* warning, no 100-user cap, and only
+   `amarulasolutions.com` accounts can authorise it — which is what you want.
+   The old *OAuth consent screen → User type* location no longer exists; the
+   setting moved under **Audience**.
+4. **Fill in Branding** — app name, logo (`images/icon-128.png` works), support
+   email. This is what replaces the `GoogleAppsScript` line.
+
+### The step that breaks things quietly
+
+**Changing the GCP project can invalidate the existing web app deployment.**
+After step 2, redeploy and compare the `/exec` URL with the one recorded above:
+
+- **Same URL** → nothing further to do.
+- **Different URL** → update `CHECKIN_URL` on the add-on's project *before*
+  anyone books another meeting.
+
+That second case is the dangerous one. Invitations already sent keep working,
+because they carry the old URL and the old deployment still resolves — so the
+failure appears only on **newly created** events, days later, and looks like
+the add-on has broken rather than a setting having changed.
+
+### What this does not fix
+
+Attendees from outside the domain. They never reach the consent screen in the
+normal case — they resolve to an empty address and go straight to the guest
+path — but if they ever are prompted, they will still see an unverified
+warning, and the only cure is Google's full OAuth verification. Not worth
+pursuing for an internal tool.
