@@ -1,0 +1,4 @@
+# Only the web app sources belong in the Apps Script project.
+**/**
+!appsscript.json
+!*.gs
