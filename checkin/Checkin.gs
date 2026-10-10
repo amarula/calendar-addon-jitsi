@@ -274,23 +274,52 @@ function mintToken_(cfg, ticket, email) {
  * ------------------------------------------------------------------ */
 
 /**
- * Sends the browser on to Jitsi.
+ * Offers the way on to Jitsi.
  *
- * A meta refresh rather than a script, because Apps Script web apps cannot
- * return an HTTP 302 and a refresh needs no JavaScript to run.
+ * This is a link the visitor clicks rather than an automatic redirect, and the
+ * reason is not stylistic. Apps Script serves every web app inside a sandboxed
+ * iframe whose permission policy delegates a fixed list of features --
+ * accelerometer, autoplay, fullscreen, geolocation and so on -- from which
+ * camera, microphone and display-capture are absent. A redirect, whether by
+ * meta refresh or by script, navigates that iframe, so Jitsi would load inside
+ * a frame that is not permitted to touch the camera or microphone, and no
+ * amount of user consent could override it. The symptom is "permission not
+ * granted for camera and microphone" in a room that otherwise looks fine.
+ *
+ * `target="_top"` escapes the frame and loads Jitsi as a top-level document
+ * with its normal permissions. The sandbox grants
+ * `allow-top-navigation-by-user-activation`, which is exactly the flag that
+ * permits this from a click -- and only from a click, which is why this cannot
+ * be automated away. Do not "simplify" this back into a redirect.
  *
  * @param {string} url where to send them.
  * @return {HtmlOutput}
  */
 function redirectTo_(url) {
-  const safe = url.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+  const safe = escapeHtml_(url);
   return HtmlService.createHtmlOutput(
       '<!doctype html><meta charset="utf-8">' +
       '<meta name="viewport" content="width=device-width,initial-scale=1">' +
-      '<meta http-equiv="refresh" content="0;url=' + safe + '">' +
-      '<title>Joining the meeting…</title>' +
-      '<p style="font:16px system-ui;padding:2rem">' +
-      'Joining the meeting… <a href="' + safe + '">Continue</a></p>');
+      '<title>Join the meeting</title>' +
+      '<style>' +
+      'body{font:16px/1.5 system-ui,-apple-system,sans-serif;margin:0;' +
+      'display:grid;place-items:center;min-height:100vh;background:#f5f7fa;' +
+      'color:#12171f}' +
+      'main{text-align:center;padding:2rem;max-width:26rem}' +
+      'h1{font-size:1.25rem;margin:0}' +
+      'p{color:#59636f;margin:.6rem 0 0}' +
+      'a{display:inline-block;margin-top:1.5rem;padding:.85rem 1.9rem;' +
+      'background:#1a5fb4;color:#fff;border-radius:6px;text-decoration:none;' +
+      'font-weight:600}' +
+      'a:focus-visible{outline:3px solid #1a5fb4;outline-offset:3px}' +
+      '</style>' +
+      '<main>' +
+      '<h1>Your meeting is ready</h1>' +
+      '<p>Jitsi opens in this tab, and your browser will ask for the camera ' +
+      'and microphone.</p>' +
+      '<a href="' + safe + '" target="_top" rel="noopener">' +
+      'Join the meeting</a>' +
+      '</main>');
 }
 
 /**

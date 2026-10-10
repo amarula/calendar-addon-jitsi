@@ -49,6 +49,25 @@ reach the page in order to be sent down the guest path.
 `makeNonOrganizerLink` signs a ticket owned by someone else, so you can confirm
 that a non-organiser joins without moderator rights.
 
+## Why joining takes a click
+
+Apps Script serves every web app inside a sandboxed iframe whose permission
+policy delegates a fixed list — accelerometer, autoplay, fullscreen, geolocation
+and so on — from which **camera, microphone and display-capture are absent**. A
+redirect, whether by meta refresh or by script, navigates that frame, so Jitsi
+would load inside it unable to reach either device. The room looks fine and the
+browser reports "permission not granted for camera and microphone", with no
+prompt the user can accept.
+
+The way on is therefore a link with `target="_top"`, which escapes the frame.
+The sandbox grants `allow-top-navigation-by-user-activation` — the exact flag
+that permits this from a click, and only from a click. That is why there is a
+button, and why it cannot be turned back into an automatic redirect.
+
+If that click ever stops working, the fallback is `target="_blank"` with
+`rel="noopener"`: `allow-popups-to-escape-sandbox` is granted, so a new tab
+also escapes. Less tidy than the same tab, but it has fewer moving parts.
+
 ## The assumption to verify first
 
 `Session.getActiveUser().getEmail()` is what tells a company member from
