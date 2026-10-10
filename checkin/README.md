@@ -68,19 +68,31 @@ If that click ever stops working, the fallback is `target="_blank"` with
 `rel="noopener"`: `allow-popups-to-escape-sandbox` is granted, so a new tab
 also escapes. Less tidy than the same tab, but it has fewer moving parts.
 
-## The assumption to verify first
+## The identity assumption — measured, not assumed
 
 `Session.getActiveUser().getEmail()` is what tells a company member from
-everyone else. Google's documentation is not clear on what it returns for a
-web app deployed to **execute as me**: it lists that mode among contexts where
-the address is unavailable, then carves out an exception for users in the same
-domain as the script owner.
+everyone else. Google's documentation was ambiguous about a web app deployed
+to **execute as me**: it lists that mode among contexts where the address is
+unavailable, then carves out an exception for users in the same domain as the
+script owner. It was not clear which applied.
 
-So open `?diag=1` from both a company account and a personal one and check:
+Measured on the live deployment (`USER_DEPLOYING` + `ANYONE_ANONYMOUS`):
 
-| If the company account shows | And the personal account shows | Then |
+| Visitor | `getActiveUser().getEmail()` | Result |
 |---|---|---|
-| an address | empty | the design works as drawn |
-| empty | empty | the page cannot name anyone — switch to `USER_ACCESSING`, which prompts for consent, or move to a full OIDC flow |
+| Signed-in company member | their address | own token; moderator if they booked it |
+| Anonymous, or outside the domain | empty | guest link, no token |
 
-Do not build further on this until that table has been filled in.
+The exception applies. The design works as drawn.
+
+The practical consequence is worth stating plainly: **only the script owner
+ever authorises anything.** Attendees never see a consent screen, nobody
+generates a secret, and this is the entire reason the sandbox-iframe
+workaround in the section above is worth tolerating.
+
+It also means this is now a dependency on undocumented behaviour. If a
+Workspace policy tightens, or the deployment is ever switched to
+`USER_ACCESSING`, members would start resolving to empty and would **silently**
+fall through to the guest path — a meeting where nobody has moderator and
+everyone is prompted for a name. `?diag=1` exists to catch exactly that; it is
+worth opening after any change to the deployment settings.
