@@ -12,8 +12,7 @@
   "oauthScopes": [
     "https://www.googleapis.com/auth/calendar.addons.execute",
     "https://www.googleapis.com/auth/calendar.events.readonly",
-    "https://www.googleapis.com/auth/script.external_request",
-    "https://www.googleapis.com/auth/script.scriptapp"
+    "https://www.googleapis.com/auth/script.external_request"
   ],
   "urlFetchWhitelist": [
     "https://jitsi.amarulasolutions.com/",
