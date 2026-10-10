@@ -1,0 +1,3 @@
+# clasp project bindings: environment-specific, not source.
+.clasp.json
+.clasp.*.json
