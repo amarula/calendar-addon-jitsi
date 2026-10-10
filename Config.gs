@@ -13,6 +13,7 @@
  *   JAAS_TENANT         "vpaas-magic-cookie-<uuid>"      (JAAS only)
  *   TOKEN_TTL_HOURS     JWT lifetime, default 720        (30 days)
  *   GRANT_MODERATOR     "true" to put moderator in the token (default true)
+ *   TOKEN_IDENTITY      "none" or "organizer"            (default none)
  */
 
 /** Default domain of the self-hosted deployment. */
@@ -152,6 +153,32 @@ function getTokenTtlHours() {
  */
 function grantsModerator() {
   return (getProperty_('GRANT_MODERATOR') || 'true').toLowerCase() !== 'false';
+}
+
+/**
+ * Whether the minted token carries a participant identity.
+ *
+ * Defaults to 'none', and that default matters. There is exactly one token per
+ * invitation and it travels in the URL, so every attendee joins with whatever
+ * identity it carries. Naming the organiser therefore does not identify the
+ * organiser -- it makes every guest appear to be the organiser, which is
+ * impersonation and wrong for anything but a single-host meeting. It also
+ * breaks down entirely when the event has no display name to use, because the
+ * token then carries an empty name and Jitsi falls back to whatever display
+ * name that browser last used.
+ *
+ * 'none' leaves the identity blank and lets Jitsi name each participant
+ * individually, which is what the add-on did before.
+ *
+ * @return {string} 'none' or 'organizer'.
+ */
+function getTokenIdentity() {
+  const raw = (getProperty_('TOKEN_IDENTITY') || 'none').toLowerCase();
+  if (raw !== 'none' && raw !== 'organizer') {
+    throw new Error('TOKEN_IDENTITY must be "none" or "organizer", got "' +
+        raw + '".');
+  }
+  return raw;
 }
 
 function getProperty_(name) {

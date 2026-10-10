@@ -147,13 +147,24 @@ function buildVideoUri_(deployment, roomName, token, subject) {
  * Describes the participant the shared token is minted for.
  *
  * The token ends up in an invitation URL that every attendee receives, so
- * there is exactly one of them, not one per participant. The organiser is the
- * best available stand-in for "who this meeting belongs to".
+ * there is exactly one of them, not one per participant. That is why the
+ * default is an empty identity: putting the organiser's name and address in a
+ * token that everyone shares would not identify the organiser, it would present
+ * every guest as the organiser. An empty identity leaves Jitsi to name each
+ * person individually, which is what the add-on did before.
+ *
+ * A genuinely per-participant identity is not reachable from here. It needs a
+ * token minted when the link is clicked, which needs a redirector service
+ * sitting between the invitation and the room.
  *
  * @param {Object} calendarEvent a Calendar Event resource.
  * @return {Object} {id, name, email, moderator}
  */
 function participantFor_(calendarEvent) {
+  if (getTokenIdentity() === 'none') {
+    return {id: '', name: '', email: '', moderator: grantsModerator()};
+  }
+
   const organizer = calendarEvent.organizer || {};
   const self = (calendarEvent.attendees || []).filter(a => a.self)[0] || {};
   const email = self.email || organizer.email || '';

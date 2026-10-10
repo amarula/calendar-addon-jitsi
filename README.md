@@ -32,6 +32,7 @@ No secrets are stored in the source. Set them in the Apps Script editor under
 | `JAAS_TENANT` | `JAAS` | `"vpaas-magic-cookie-<uuid>"`. |
 | `TOKEN_TTL_HOURS` | no | JWT lifetime. Default `720` (30 days). |
 | `GRANT_MODERATOR` | no | `"false"` to omit the moderator claim. Default `true`. |
+| `TOKEN_IDENTITY` | no | `"none"` or `"organizer"`. Default `"none"`. |
 
 ### Choosing a deployment
 
@@ -61,6 +62,31 @@ That is usually what an internal deployment wants, because a room with no
 moderator at all is unusable, but it is worth being deliberate about. Handing
 moderator to the organiser alone requires a per-participant token, which
 requires a redirector that mints one when the link is clicked.
+
+### A note on participant identity
+
+`TOKEN_IDENTITY` defaults to `"none"`, and that is not a placeholder default —
+it is the only correct one for a shared invitation.
+
+There is exactly one token per event and it travels in the join URL, so every
+attendee presents the same identity to the Jitsi server. Filling in the
+organiser's name and address therefore does **not** identify the organiser: it
+presents every guest as the organiser. It also degrades badly, because when the
+event has no display name to use the token carries an empty name and Jitsi falls
+back to whatever display name that browser last used — which shows up as
+participants appearing under someone else's name entirely.
+
+`"none"` leaves the identity blank and lets Jitsi name each participant
+individually. `"organizer"` is available for a room you know will be run by a
+single host, and should be used deliberately.
+
+A genuinely per-participant identity needs a token minted when the link is
+clicked, which needs a redirector service between the invitation and the room.
+An invitation URL cannot do it.
+
+The **subject** is a different matter and *is* per-event: the event title is
+sent as `#config.subject`, so the room shows the right meeting name without
+anyone being misidentified.
 
 ## The conference icon
 

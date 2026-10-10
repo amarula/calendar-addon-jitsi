@@ -1,0 +1,5 @@
+# Only the add-on sources belong in the Apps Script project. Without this,
+# clasp also uploads README.md, LICENSE and images/ as script files.
+**/**
+!appsscript.json
+!*.gs
