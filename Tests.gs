@@ -63,6 +63,7 @@ function runSelfTest() {
   if (videoUri.indexOf('callDisplayName') >= 0) {
     log_('PROBLEM: callDisplayName is the iOS CallKit name and does nothing here');
   }
+  checkSubjectFragment_(videoUri);
 
   log_('--- dial-in ---');
   log_(JSON.stringify(fetchDialIn(deployment, roomName)));
@@ -86,6 +87,39 @@ function runSelfTest() {
   }
 
   log_('--- self test finished ---');
+}
+
+/**
+ * Checks that a join URI's subject fragment will survive jitsi-meet's parser.
+ *
+ * This is the check that would have caught the unquoted-value bug. jitsi-meet
+ * reads URL config overrides with safeJsonParse -- @hapi/bourne's parse, which
+ * throws on anything that is not valid JSON -- and its caller DISCARDS the
+ * parameter when that throws rather than falling back to the raw text. So
+ * `#config.subject=Standup AI` reaches the browser, is thrown away in silence,
+ * and the room shows its UUID with no sign that anything was wrong. The value
+ * has to be a JSON string: `#config.subject="Standup AI"`.
+ *
+ * Decoding the value and handing it to JSON.parse here is the same test
+ * jitsi-meet performs, minus the browser.
+ *
+ * @param {string} uri a join URI, possibly carrying a subject fragment.
+ */
+function checkSubjectFragment_(uri) {
+  const match = /[#&]config\.subject=([^&]*)/.exec(uri);
+  if (!match) {
+    log_('no subject fragment in this URI (no event title, or no token path)');
+    return;
+  }
+
+  const value = decodeURIComponent(match[1]);
+  try {
+    log_('subject fragment parses to: ' + JSON.stringify(JSON.parse(value)));
+  } catch (err) {
+    log_('PROBLEM: jitsi-meet will DISCARD this subject fragment, and the room ' +
+        'will fall back to showing its UUID. The value must be valid JSON -- ' +
+        'a quoted string such as "My Meeting". Got: ' + value);
+  }
 }
 
 /**
