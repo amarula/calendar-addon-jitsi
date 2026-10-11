@@ -20,13 +20,27 @@ function createConference(arg) {
 
   // Retrieve the Calendar event information using the Calendar advanced
   // service.
+  //
+  // Both outcomes are logged with the identifiers we asked for. A 404 here
+  // tells us the event could not be read but nothing about why, and the
+  // calendarId and eventId cannot be inspected from outside the project --
+  // they only exist inside a live invocation. Which means a failure here is
+  // otherwise undiagnosable.
   let calendarEvent;
   try {
     calendarEvent = Calendar.Events.get(eventData.calendarId, eventData.eventId);
+    console.log('Calendar.Events.get ok. calendarId=' + eventData.calendarId +
+        ' eventId=' + eventData.eventId +
+        ' summary=' + calendarEvent.summary);
   } catch (err) {
     // The calendar event does not exist just yet; proceed with the given event
     // ID and allow the event details to sync later.
-    console.log(err);
+    //
+    // Consequence worth knowing: without the event there is no title and no
+    // organiser, so the room gets no name and nobody gets moderator rights.
+    console.log('Calendar.Events.get FAILED. calendarId=' +
+        eventData.calendarId + ' eventId=' + eventData.eventId +
+        ' error=' + err);
     calendarEvent = {id: eventData.eventId};
   }
 
