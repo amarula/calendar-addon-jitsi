@@ -232,6 +232,20 @@ function guestUrl_(ticket) {
  * client, so it survives whatever stops the room-wide value being drawn.
  * Sending both is belt and braces, and harmless where one already works.
  *
+ * The value must be JSON, and must be percent-encoded.
+ *
+ * JSON, because jitsi-meet parses URL config values with safeJsonParse --
+ * @hapi/bourne's parse, which throws on anything that is not valid JSON -- and
+ * its caller DISCARDS the parameter instead of falling back to the raw text.
+ * An unquoted `#config.subject=Standup AI` is therefore dropped in silence and
+ * the room shows its UUID, while `#config.subject="Standup AI"` is applied.
+ * Jitsi's own examples all look like `#config.transcription.diarize=true`:
+ * booleans and numbers are valid JSON, so those work unquoted and the
+ * difference is easy to miss.
+ *
+ * Percent-encoded, because encodeURI leaves `&`, `=` and `#` alone, which
+ * would let a title inject further config parameters.
+ *
  * The value comes from the verified ticket, never from a query parameter, so
  * it cannot be tampered with -- which matters because the subject is seen by
  * everyone in the room.
@@ -243,7 +257,7 @@ function subjectFragment_(ticket) {
   if (!ticket.subject) {
     return '';
   }
-  const value = encodeURIComponent(ticket.subject);
+  const value = encodeURIComponent(JSON.stringify(ticket.subject));
   return '#config.subject=' + value + '&config.localSubject=' + value;
 }
 

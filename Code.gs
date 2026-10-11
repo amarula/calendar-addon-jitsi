@@ -204,16 +204,27 @@ function buildVideoUri_(deployment, roomName, token, subject) {
   }
 
   if (subject) {
-    // `config.callDisplayName`, which this add-on used previously, is the iOS
-    // CallKit name and does nothing here. `config.subject` is the correct
-    // option, and `config.localSubject` sets the same value on the joining
-    // client -- sent as well, because a room whose subject never renders
-    // leaves everyone staring at a UUID with no way to identify the meeting.
+    // `config.callDisplayName`, which this add-on used previously, is
+    // documented as the iOS CallKit name; it is consulted as a display
+    // fallback too, but it is a config.js value rather than a per-event one.
+    // `config.subject` sets the name for the room and `config.localSubject`
+    // the same name on the joining client -- both are sent, because a room
+    // whose subject never renders leaves everyone staring at a UUID.
     //
-    // The value sits in the URL fragment and must be percent-encoded:
-    // encodeURI leaves `&`, `=` and `#` alone, which would let a title inject
-    // further config parameters.
-    const value = encodeURIComponent(subject);
+    // The value must be JSON, and must be percent-encoded.
+    //
+    // JSON, because jitsi-meet parses every URL config value with
+    // safeJsonParse -- @hapi/bourne's parse, which throws on anything that is
+    // not valid JSON -- and its caller DISCARDS the parameter rather than
+    // falling back to the raw text. So `#config.subject=Standup AI` is
+    // dropped in silence and the room falls back to its UUID, while
+    // `#config.subject="Standup AI"` is applied. Jitsi's own examples all
+    // look like `#config.transcription.diarize=true`: booleans and numbers
+    // are valid JSON, which is why those happen to work unquoted.
+    //
+    // Percent-encoded, because encodeURI leaves `&`, `=` and `#` alone, which
+    // would let a title inject further config parameters.
+    const value = encodeURIComponent(JSON.stringify(subject));
     uri += '#config.subject=' + value + '&config.localSubject=' + value;
   }
 
