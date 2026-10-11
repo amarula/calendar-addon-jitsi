@@ -219,17 +219,32 @@ function guestUrl_(ticket) {
 }
 
 /**
- * The subject travels in the URL fragment. It comes from the verified ticket,
- * never from a query parameter, so it cannot be tampered with -- which matters
- * because `config.subject` sets the subject for the whole room.
+ * The meeting name, as a URL fragment.
+ *
+ * Two config options, deliberately both sent:
+ *
+ *   config.subject       sets the subject for the whole room
+ *   config.localSubject  sets the subject the joining client displays for itself
+ *
+ * `subject` is the correct one semantically, but a room whose subject never
+ * renders leaves every participant looking at a UUID and no way to tell which
+ * meeting they are in. `localSubject` is applied directly to the joining
+ * client, so it survives whatever stops the room-wide value being drawn.
+ * Sending both is belt and braces, and harmless where one already works.
+ *
+ * The value comes from the verified ticket, never from a query parameter, so
+ * it cannot be tampered with -- which matters because the subject is seen by
+ * everyone in the room.
  *
  * @param {Object} ticket verified ticket claims.
  * @return {string}
  */
 function subjectFragment_(ticket) {
-  return ticket.subject
-      ? '#config.subject=' + encodeURIComponent(ticket.subject)
-      : '';
+  if (!ticket.subject) {
+    return '';
+  }
+  const value = encodeURIComponent(ticket.subject);
+  return '#config.subject=' + value + '&config.localSubject=' + value;
 }
 
 /**

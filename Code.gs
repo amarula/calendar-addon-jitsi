@@ -190,12 +190,17 @@ function buildVideoUri_(deployment, roomName, token, subject) {
   }
 
   if (subject) {
-    // `config.subject` is what the Jitsi UI renders as the meeting name.
     // `config.callDisplayName`, which this add-on used previously, is the iOS
-    // CallKit name and does nothing here. The value sits in the URL fragment
-    // and must be percent-encoded: encodeURI leaves `&`, `=` and `#` alone,
-    // which would let a title inject further config parameters.
-    uri += '#config.subject=' + encodeURIComponent(subject);
+    // CallKit name and does nothing here. `config.subject` is the correct
+    // option, and `config.localSubject` sets the same value on the joining
+    // client -- sent as well, because a room whose subject never renders
+    // leaves everyone staring at a UUID with no way to identify the meeting.
+    //
+    // The value sits in the URL fragment and must be percent-encoded:
+    // encodeURI leaves `&`, `=` and `#` alone, which would let a title inject
+    // further config parameters.
+    const value = encodeURIComponent(subject);
+    uri += '#config.subject=' + value + '&config.localSubject=' + value;
   }
 
   return uri;
